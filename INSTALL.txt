@@ -1,0 +1,27 @@
+INSTALLATION AFTER GITHUB ACTIONS BUILD
+
+1. Download the artifact "rehlds-netdiag-linux-i386".
+2. Extract rehlds_netdiag_mm_i386.so.
+3. Via FTP create:
+   /cstrike/addons/rehlds_netdiag/
+4. Upload:
+   /cstrike/addons/rehlds_netdiag/rehlds_netdiag_mm_i386.so
+5. In /cstrike/addons/metamod/plugins.ini add:
+   linux addons/rehlds_netdiag/rehlds_netdiag_mm_i386.so
+6. Restart the server.
+7. In the server console run:
+   meta list
+8. Check that this file appears:
+   /cstrike/addons/rehlds_netdiag/rehlds_netdiag.log
+
+DO NOT remove net_plugin_hunter_v5.1 yet.
+Keep both diagnostics active so timestamps can be compared.
+
+Expected startup line:
+[START] ReHLDS NetDiag 1.1 attached
+
+Expected overflow block:
+################ ENGINE NET EVENT ################
+[EVENT] SZ_GetSpace: overflow on ...
+[CLIENT] ... datagram=.../... reliable=.../... packet_entities=... packet_msg_delta=...
+##################################################
