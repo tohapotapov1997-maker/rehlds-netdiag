@@ -1,0 +1,90 @@
+name: Build ReHLDS NetDiag
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "CMakeLists.txt"
+      - "version_script.lds"
+      - ".github/workflows/build.yml"
+
+jobs:
+  linux-i386:
+    runs-on: ubuntu-latest
+    container: debian:11-slim
+
+    steps:
+      - name: Prepare Debian 11 repositories
+        shell: bash
+        run: |
+          set -eux
+          cat > /etc/apt/sources.list <<'EOF'
+          deb http://archive.debian.org/debian bullseye main
+          deb http://archive.debian.org/debian bullseye-updates main
+          EOF
+          apt-get -o Acquire::Check-Valid-Until=false update
+          apt-get install -y --no-install-recommends ca-certificates
+          echo 'deb https://snapshot-cloudflare.debian.org/archive/debian-security/20260831T000000Z bullseye-security main' > /etc/apt/sources.list.d/bullseye-security.list
+          apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Retries=5 update
+
+      - name: Install 32-bit build tools
+        shell: bash
+        run: |
+          set -eux
+          dpkg --add-architecture i386
+          apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Retries=5 update
+          apt-get install -y --no-install-recommends \
+            git \
+            cmake \
+            build-essential \
+            gcc \
+            g++ \
+            gcc-multilib \
+            g++-multilib \
+            libc6-dev \
+            libc6-dev-i386 \
+            binutils \
+            file
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch ReHLDS SDK dependencies
+        shell: bash
+        run: bash scripts/fetch_deps.sh
+
+      - name: Configure
+        shell: bash
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --parallel 2
+
+      - name: Verify 32-bit binary and GLIBC requirements
+        shell: bash
+        run: |
+          set -eux
+          file build/rehlds_netdiag_mm_i386.so
+          readelf -h build/rehlds_netdiag_mm_i386.so
+          echo "---- required GLIBC versions ----"
+          readelf --version-info build/rehlds_netdiag_mm_i386.so | grep -o 'GLIBC_[0-9.]*' | sort -Vu || true
+          echo "---- dynamic deps ----"
+          ldd build/rehlds_netdiag_mm_i386.so || true
+
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          mkdir -p artifact
+          cp build/rehlds_netdiag_mm_i386.so artifact/
+          cp INSTALL.txt artifact/
+
+      - name: Upload compiled .so
+        uses: actions/upload-artifact@v4
+        with:
+          name: rehlds-netdiag-linux-i386-debian11
+          path: artifact/
+          if-no-files-found: error
